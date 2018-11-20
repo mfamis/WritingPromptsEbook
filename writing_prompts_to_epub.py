@@ -4,8 +4,12 @@ import praw
 import os
 import argparse
 import datetime
+import logging
 
 from settings import CLIENT_ID, CLIENT_SECRET
+
+logging.basicConfig(level=logging.INFO,
+                    format='%(asctime)s %(levelname)s %(message)s')
 
 parser = argparse.ArgumentParser(description='Generate epub of /r/WritingPrompts.')
 parser.add_argument('num_posts', type=int, default=10)
@@ -37,9 +41,12 @@ toc = []
 
 # iterate over each post comments to generate chapters
 for pi, post in enumerate(posts):
+  logging.info('Processing post (%d/%d) titled: %s' % (pi+1, args.num_posts, post.title))
   story_prompt_html = "<p><i>%s</i></p>" % post.title
   comments = post.comments
   for ci in range(1, args.num_comments+1):
+    logging.info('Processing comment (%d/%d) titled: %s' \
+      % (ci, args.num_comments, comments[ci].author))
 
     # create a header to credit the comment author
     author_html = \
@@ -66,10 +73,11 @@ for pi, post in enumerate(posts):
     chapters.append(chapter)
     spine.append(chapter)
 
+logging.info('Finished processing chapters, creating epub: %s' \
+  % (book_file_name + ".epub"))
 book.toc = toc
-
 book.spine = spine
 book.add_item(epub.EpubNcx())
 book.add_item(epub.EpubNav())
-print(book_file_name)
 epub.write_epub(book_file_name + ".epub", book)
+logging.info('Done')
