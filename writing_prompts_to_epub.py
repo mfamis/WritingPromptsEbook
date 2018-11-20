@@ -12,21 +12,22 @@ logging.basicConfig(level=logging.INFO,
                     format='%(asctime)s %(levelname)s %(message)s')
 
 parser = argparse.ArgumentParser(description='Generate epub of /r/WritingPrompts.')
-parser.add_argument('num_posts', type=int, default=10)
-parser.add_argument('num_comments', type=int, default=1)
-parser.add_argument('top_criteria', type=str, default="week")
+parser.add_argument('--num_posts', type=int, default=10)
+parser.add_argument('--num_comments', type=int, default=1)
+parser.add_argument('--top_criteria', type=str, default="week")
 args = parser.parse_args()
 
+# generate the date string for the default book file name
 date = datetime.datetime.now()
-date_string = '%d-%d' % (date.month, date.day)
+date_string = '%d-%d-%d' % (date.month, date.day, date.year)
 
+# get the subreddit post data
 reddit = praw.Reddit(client_id=CLIENT_ID, client_secret=CLIENT_SECRET, user_agent='mozilla')
 subreddit = reddit.subreddit('writingprompts')
-
 posts = subreddit.top(time_filter=args.top_criteria, limit=args.num_posts)
 
 # create ebook
-book_file_name = 'WP-%s' % date_string
+book_file_name = 'WP-%s-%s' % (args.top_criteria, date_string)
 book = epub.EpubBook()
 book.set_identifier(book_file_name)
 book.set_title('WritingPrompts - Best of %s (%s)' % (args.top_criteria, date_string))
@@ -44,6 +45,7 @@ for pi, post in enumerate(posts):
   logging.info('Processing post (%d/%d) titled: %s' % (pi+1, args.num_posts, post.title))
   story_prompt_html = "<p><i>%s</i></p>" % post.title
   comments = post.comments
+
   for ci in range(1, args.num_comments+1):
     logging.info('Processing comment (%d/%d) titled: %s' \
       % (ci, args.num_comments, comments[ci].author))
@@ -60,7 +62,6 @@ for pi, post in enumerate(posts):
 
     # create the epub chapter
     chapter_number = (pi * args.num_comments) + ci
-    #chapter_title = '%s: %s' % (comments[ci].author, " ".join(post.title.split(" ")[0:6]))
     chapter_title = '%s: %s' % (comments[ci].author, post.title)
     file_name = 'ch%d.xhtml' % chapter_number
     title = '%d: %s' % (chapter_number, chapter_title)
@@ -75,9 +76,12 @@ for pi, post in enumerate(posts):
 
 logging.info('Finished processing chapters, creating epub: %s' \
   % (book_file_name + ".epub"))
+
+# create table of contents, spine and write the epub to disk
 book.toc = toc
 book.spine = spine
 book.add_item(epub.EpubNcx())
 book.add_item(epub.EpubNav())
 epub.write_epub(book_file_name + ".epub", book)
+
 logging.info('Done')
